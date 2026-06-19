@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<title>4桁数字 最短攻略ソルバー iPhone対応版</title>
+<style>
+:root {
+  --bg:#f3f5f7; --card:#fff; --text:#17191c; --muted:#69717b;
+  --line:#dce1e7; --accent:#1769e0; --accent-soft:#edf4ff;
+  --danger:#bd2525; --ok:#137a35; --warn:#8a5b00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:#11151a; --card:#1b2027; --text:#f1f3f5; --muted:#a9b1bb;
+    --line:#343b45; --accent:#77aaff; --accent-soft:#1d3150;
+    --danger:#ff8b8b; --ok:#75d68f; --warn:#f1bd55;
+  }
+}
+* { box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; }
+body {
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  line-height:1.5; -webkit-tap-highlight-color:transparent;
+}
+main { width:100%; max-width:920px; margin:0 auto; padding:18px 14px 54px; }
+h1 { margin:0 0 4px; font-size:1.5rem; }
+h2 { margin:0 0 12px; font-size:1.06rem; }
+p { margin:7px 0; }
+.lead,.note,.status { color:var(--muted); }
+.lead { margin-bottom:16px; }
+.note,.status { font-size:.85rem; }
+.card {
+  background:var(--card); border:1px solid var(--line); border-radius:16px;
+  padding:16px; margin:12px 0; box-shadow:0 8px 24px rgba(20,28,40,.07);
+}
+@media (prefers-color-scheme:dark) { .card { box-shadow:none; } }
+.suggestion { border-color:var(--accent); background:var(--card); }
+.suggestion-number {
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:4rem;
+  font-weight:800; line-height:1; letter-spacing:.1em; color:var(--accent);
+  margin:12px 0 10px; font-variant-numeric:tabular-nums;
+}
+.metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+.metric { border:1px solid var(--line); border-radius:12px; padding:10px; background:var(--accent-soft); }
+.metric b { display:block; font-size:1.05rem; }
+.metric span { color:var(--muted); font-size:.76rem; }
+.row { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+.field { flex:1 1 180px; }
+label.field-label { display:block; color:var(--muted); font-size:.82rem; margin-bottom:5px; }
+input,select,button { font:inherit; }
+input[type="text"],input[type="number"],select {
+  width:100%; min-height:46px; border:1px solid var(--line); border-radius:11px;
+  background:var(--card); color:var(--text); padding:11px 12px;
+  -webkit-appearance:none; appearance:none;
+}
+#guessInput {
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:1.5rem;
+  font-weight:700; letter-spacing:.18em; text-align:center;
+}
+.feedback-board { display:grid; gap:9px; margin:12px 0; }
+.feedback-row { display:grid; grid-template-columns:54px 1fr; gap:8px; align-items:center; }
+.feedback-position { color:var(--muted); font-size:.8rem; }
+.segmented { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; }
+.segmented input { position:absolute; opacity:0; pointer-events:none; }
+.segmented label {
+  display:flex; align-items:center; justify-content:center; min-height:48px;
+  border:1px solid var(--line); border-radius:10px; background:var(--card);
+  font-size:1.35rem; font-weight:800; user-select:none; -webkit-user-select:none;
+  touch-action:manipulation; cursor:pointer;
+}
+.segmented input[value="0"] + label { color:var(--danger); }
+.segmented input[value="1"] + label { color:var(--warn); }
+.segmented input[value="2"] + label { color:var(--ok); }
+.segmented input:checked + label { border:2px solid var(--accent); background:var(--accent-soft); }
+.actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+button {
+  min-height:46px; border-radius:11px; padding:10px 14px; font-weight:700;
+  touch-action:manipulation; -webkit-appearance:none; appearance:none; cursor:pointer;
+}
+button.primary { border:0; background:var(--accent); color:#fff; }
+button.secondary { border:1px solid var(--line); background:var(--card); color:var(--text); }
+button:disabled { opacity:.5; cursor:default; }
+.error { color:var(--danger); font-weight:700; }
+.success { color:var(--ok); font-weight:700; }
+.warning {
+  display:block; border:1px solid var(--danger); border-radius:12px; padding:12px;
+  color:var(--danger); background:var(--card); margin:12px 0; font-weight:700;
+}
+table { width:100%; border-collapse:collapse; font-size:.9rem; }
+th,td { text-align:left; padding:9px 6px; border-bottom:1px solid var(--line); }
+th { color:var(--muted); font-weight:600; }
+.mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.07em; }
+.feedback-text { font-size:1.08rem; letter-spacing:.12em; }
+details { margin-top:8px; }
+summary { color:var(--accent); font-weight:700; cursor:pointer; }
+.candidate-list {
+  margin-top:10px; max-height:220px; overflow:auto; -webkit-overflow-scrolling:touch;
+  border:1px solid var(--line); border-radius:10px; padding:10px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; word-break:break-word;
+}
+.rules { display:grid; gap:7px; }
+.pill { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:2px 8px; margin-right:4px; font-weight:700; }
+@media (max-width:560px) {
+  .metrics { grid-template-columns:1fr; }
+  .suggestion-number { font-size:3.1rem; letter-spacing:.07em; }
+  .actions button { flex:1 1 100%; }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>4桁数字 最短攻略ソルバー</h1>
+  <p class="lead">iPhone対応版。0〜9、重複あり、先頭0あり、一対一消費の○・△・×判定に対応。</p>
+
+  <div id="scriptWarning" class="warning">
+    JavaScriptが実行されていません。ChatGPT内のファイル表示や「ファイル」アプリのプレビューではなく、JavaScriptを実行できるブラウザ環境で開いてください。
+  </div>
+  <noscript><div class="warning">このツールの利用にはJavaScriptが必要です。</div></noscript>
+
+  <section class="card suggestion">
+    <h2>次に入力する数字</h2>
+    <div id="suggestionNumber" class="suggestion-number">0123</div>
+    <p id="suggestionReason">最初は異なる4数字で、4種類を同時に調査します。</p>
+    <div class="metrics">
+      <div class="metric"><b id="candidateCount">10,000</b><span>残り候補</span></div>
+      <div class="metric"><b id="attemptsLeft">4</b><span>残り入力回数</span></div>
+      <div class="metric"><b id="calculationType">初手固定</b><span>提案方法</span></div>
+    </div>
+    <div id="calcStatus" class="status">起動処理中…</div>
+  </section>
+
+  <section class="card">
+    <h2>ゲーム設定</h2>
+    <div class="row">
+      <div class="field">
+        <label class="field-label" for="totalAttempts">入力できる総回数</label>
+        <input id="totalAttempts" type="number" min="1" max="20" value="4">
+      </div>
+      <div class="field">
+        <label class="field-label" for="strategy">通常時の戦略</label>
+        <select id="strategy">
+          <option value="expected" selected>平均的に最短（推奨）</option>
+          <option value="minimax">最悪ケースを小さくする</option>
+        </select>
+      </div>
+    </div>
+    <p class="note">残り2回では、次の結果で正解を一意にできる確率を最大化します。</p>
+  </section>
+
+  <form id="resultForm" class="card" onsubmit="return Solver.addResult(event);">
+    <h2>結果を入力</h2>
+    <div class="field">
+      <label class="field-label" for="guessInput">今回入力した4桁</label>
+      <input id="guessInput" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="4" placeholder="0123">
+    </div>
+
+    <p class="note">各桁について×・△・○を直接選択してください。</p>
+    <div class="feedback-board">
+      <div class="feedback-row">
+        <div class="feedback-position">1桁目</div>
+        <div class="segmented">
+          <input id="f1x" type="radio" name="f1" value="0" checked><label for="f1x">×</label>
+          <input id="f1t" type="radio" name="f1" value="1"><label for="f1t">△</label>
+          <input id="f1o" type="radio" name="f1" value="2"><label for="f1o">○</label>
+        </div>
+      </div>
+      <div class="feedback-row">
+        <div class="feedback-position">2桁目</div>
+        <div class="segmented">
+          <input id="f2x" type="radio" name="f2" value="0" checked><label for="f2x">×</label>
+          <input id="f2t" type="radio" name="f2" value="1"><label for="f2t">△</label>
+          <input id="f2o" type="radio" name="f2" value="2"><label for="f2o">○</label>
+        </div>
+      </div>
+      <div class="feedback-row">
+        <div class="feedback-position">3桁目</div>
+        <div class="segmented">
+          <input id="f3x" type="radio" name="f3" value="0" checked><label for="f3x">×</label>
+          <input id="f3t" type="radio" name="f3" value="1"><label for="f3t">△</label>
+          <input id="f3o" type="radio" name="f3" value="2"><label for="f3o">○</label>
+        </div>
+      </div>
+      <div class="feedback-row">
+        <div class="feedback-position">4桁目</div>
+        <div class="segmented">
+          <input id="f4x" type="radio" name="f4" value="0" checked><label for="f4x">×</label>
+          <input id="f4t" type="radio" name="f4" value="1"><label for="f4t">△</label>
+          <input id="f4o" type="radio" name="f4" value="2"><label for="f4o">○</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="addResult" class="primary" type="submit">結果を追加して計算</button>
+      <button class="secondary" type="button" onclick="return Solver.useSuggestion(event);">提案数字を入力欄へ</button>
+      <button id="undo" class="secondary" type="button" onclick="return Solver.undo(event);" disabled>1手戻す</button>
+      <button class="secondary" type="button" onclick="return Solver.reset(event);">リセット</button>
+    </div>
+    <div id="inputError" class="status error"></div>
+  </form>
+
+  <section class="card">
+    <h2>履歴</h2>
+    <div id="historyEmpty" class="note">まだ結果はありません。</div>
+    <table id="historyTable" style="display:none">
+      <thead><tr><th>回</th><th>入力</th><th>結果</th><th>残候補</th></tr></thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+    <div class="actions">
+      <button class="secondary" type="button" onclick="return Solver.loadExample(event);">今回の正解例を読み込む</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>候補の確認</h2>
+    <details>
+      <summary id="candidateSummary">候補一覧を開く</summary>
+      <div id="candidateList" class="candidate-list"></div>
+      <p id="candidateNote" class="note"></p>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>判定ルール</h2>
+    <div class="rules">
+      <div><span class="pill">○</span>数字と位置が一致</div>
+      <div><span class="pill">△</span>数字は存在するが位置が異なる</div>
+      <div><span class="pill">×</span>その位置に割り当てられる同じ数字がない</div>
+    </div>
+    <p class="note">例：正解1135、入力1111なら○○××です。</p>
+  </section>
+</main>
+
+<script>
+/* ES5互換を優先し、iPhoneのWebKitでも動きやすい構文だけを使用する。 */
+(function () {
+  "use strict";
+
+  var SYMBOLS = ["×", "△", "○"];
+  var ALL = [];
+  var DIGITS = new Uint8Array(40000);
+  var history = [];
+  var candidates = [];
+  var currentSuggestion = 123;
+  var calculationToken = 0;
+  var calculating = false;
+
+  function byId(id) { return document.getElementById(id); }
+  function comma(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+  function formatNumber(n) {
+    var s = String(n);
+    while (s.length < 4) { s = "0" + s; }
+    return s;
+  }
+
+  for (var n = 0; n < 10000; n++) {
+    ALL.push(n);
+    DIGITS[n * 4] = Math.floor(n / 1000);
+    DIGITS[n * 4 + 1] = Math.floor(n / 100) % 10;
+    DIGITS[n * 4 + 2] = Math.floor(n / 10) % 10;
+    DIGITS[n * 4 + 3] = n % 10;
+  }
+  candidates = ALL.slice(0);
+
+  function scoreCode(secret, guess) {
+    var so = secret * 4;
+    var go = guess * 4;
+    var s0 = DIGITS[so], s1 = DIGITS[so + 1], s2 = DIGITS[so + 2], s3 = DIGITS[so + 3];
+    var g0 = DIGITS[go], g1 = DIGITS[go + 1], g2 = DIGITS[go + 2], g3 = DIGITS[go + 3];
+    var e0 = s0 === g0, e1 = s1 === g1, e2 = s2 === g2, e3 = s3 === g3;
+    var packed = 0;
+    var code = 0, c, shift;
+
+    if (!e0) { packed += 1 << (s0 * 3); }
+    if (!e1) { packed += 1 << (s1 * 3); }
+    if (!e2) { packed += 1 << (s2 * 3); }
+    if (!e3) { packed += 1 << (s3 * 3); }
+
+    if (e0) { code = 2; }
+    else {
+      shift = g0 * 3; c = (packed >>> shift) & 7;
+      if (c > 0) { code = 1; packed -= 1 << shift; }
+    }
+    code *= 3;
+    if (e1) { code += 2; }
+    else {
+      shift = g1 * 3; c = (packed >>> shift) & 7;
+      if (c > 0) { code += 1; packed -= 1 << shift; }
+    }
+    code *= 3;
+    if (e2) { code += 2; }
+    else {
+      shift = g2 * 3; c = (packed >>> shift) & 7;
+      if (c > 0) { code += 1; packed -= 1 << shift; }
+    }
+    code *= 3;
+    if (e3) { code += 2; }
+    else {
+      shift = g3 * 3; c = (packed >>> shift) & 7;
+      if (c > 0) { code += 1; }
+    }
+    return code;
+  }
+
+  function statesToCode(a) { return (((a[0] * 3 + a[1]) * 3 + a[2]) * 3 + a[3]); }
+  function codeToSymbols(code) {
+    var a = [0, 0, 0, 0];
+    for (var i = 3; i >= 0; i--) { a[i] = code % 3; code = Math.floor(code / 3); }
+    return SYMBOLS[a[0]] + SYMBOLS[a[1]] + SYMBOLS[a[2]] + SYMBOLS[a[3]];
+  }
+  function totalAttempts() {
+    var v = parseInt(byId("totalAttempts").value, 10);
+    if (isNaN(v) || v < 1) { return 4; }
+    return Math.min(v, 20);
+  }
+  function attemptsLeft() { return Math.max(0, totalAttempts() - history.length); }
+
+  function getFeedbackStates() {
+    var states = [];
+    for (var pos = 1; pos <= 4; pos++) {
+      var radios = document.getElementsByName("f" + pos);
+      var value = 0;
+      for (var i = 0; i < radios.length; i++) {
+        if (radios[i].checked) { value = parseInt(radios[i].value, 10); break; }
+      }
+      states.push(value);
+    }
+    return states;
+  }
+  function resetFeedback() {
+    for (var pos = 1; pos <= 4; pos++) { byId("f" + pos + "x").checked = true; }
+  }
+
+  function filterCandidates() {
+    var result = [];
+    for (var s = 0; s < 10000; s++) {
+      var ok = true;
+      for (var i = 0; i < history.length; i++) {
+        if (scoreCode(s, history[i].guess) !== history[i].feedback) { ok = false; break; }
+      }
+      if (ok) { result.push(s); }
+    }
+    candidates = result;
+  }
+
+  function buildPool(list) {
+    if (list.length <= 2500) { return { pool: ALL, exact: true }; }
+    var pool = [], seen = {}, i, value;
+    for (i = 0; i < 2500; i++) {
+      value = Math.floor(i * 4);
+      if (!seen[value]) { seen[value] = true; pool.push(value); }
+    }
+    var take = Math.min(1800, list.length);
+    var step = list.length / take;
+    for (i = 0; i < take; i++) {
+      value = list[Math.floor(i * step)];
+      if (!seen[value]) { seen[value] = true; pool.push(value); }
+    }
+    return { pool: pool, exact: false };
+  }
+
+  function isBetter(a, b, mode, left) {
+    if (b === null) { return true; }
+    if (left === 2) {
+      if (a.singletons !== b.singletons) { return a.singletons > b.singletons; }
+      if (a.worst !== b.worst) { return a.worst < b.worst; }
+      if (a.sumSquares !== b.sumSquares) { return a.sumSquares < b.sumSquares; }
+    } else if (mode === "minimax") {
+      if (a.worst !== b.worst) { return a.worst < b.worst; }
+      if (a.sumSquares !== b.sumSquares) { return a.sumSquares < b.sumSquares; }
+    } else {
+      if (a.sumSquares !== b.sumSquares) { return a.sumSquares < b.sumSquares; }
+      if (a.worst !== b.worst) { return a.worst < b.worst; }
+    }
+    if (a.isCandidate !== b.isCandidate) { return a.isCandidate; }
+    return a.guess < b.guess;
+  }
+
+  function immediateSuggestion() {
+    var left = attemptsLeft();
+    if (history.length === 0) {
+      return { guess:123, type:"初手固定", reason:"最初は異なる4数字で、4種類を同時に調査します。", exact:true };
+    }
+    if (candidates.length === 0) { return null; }
+    if (candidates.length === 1) {
+      return { guess:candidates[0], type:"正解確定", reason:"これまでの全結果に一致する候補は、この1通りだけです。", exact:true };
+    }
+    if (left <= 1) {
+      return { guess:candidates[0], type:"最終回答", reason:"残り1回で候補は" + candidates.length + "通りあります。追加調査はできないため候補から1つ選びます。", exact:true };
+    }
+    return false;
+  }
+
+  function applySuggestion(result) {
+    currentSuggestion = result.guess;
+    byId("suggestionNumber").textContent = formatNumber(result.guess);
+    byId("suggestionReason").textContent = result.reason;
+    byId("calculationType").textContent = result.type;
+    byId("calcStatus").textContent = result.exact ? "全対象を評価済み。" : "端末負荷を抑えた近似評価です。";
+    if (candidates.length === 1) { byId("calcStatus").innerHTML = '<span class="success">正解候補が確定しました。</span>'; }
+    calculating = false;
+    byId("addResult").disabled = false;
+    byId("undo").disabled = history.length === 0;
+  }
+
+  function calculateSuggestion(token) {
+    var instant = immediateSuggestion();
+    if (instant !== false) {
+      if (instant === null) {
+        byId("suggestionNumber").textContent = "----";
+        byId("suggestionReason").innerHTML = '<span class="error">入力履歴と一致する候補がありません。1手戻して判定を確認してください。</span>';
+        byId("calculationType").textContent = "矛盾あり";
+        byId("calcStatus").textContent = "";
+        calculating = false;
+        byId("addResult").disabled = false;
+        byId("undo").disabled = history.length === 0;
+        return;
+      }
+      applySuggestion(instant);
+      return;
+    }
+
+    var mode = byId("strategy").value;
+    var left = attemptsLeft();
+    var poolInfo = buildPool(candidates);
+    var pool = poolInfo.pool;
+    var candidateMark = new Uint8Array(10000);
+    var counts = [];
+    var best = null;
+    var index = 0;
+    var i;
+    for (i = 0; i < candidates.length; i++) { candidateMark[candidates[i]] = 1; }
+    for (i = 0; i < 81; i++) { counts.push(0); }
+
+    function runChunk() {
+      if (token !== calculationToken) { return; }
+      var end = Math.min(index + 70, pool.length);
+      for (; index < end; index++) {
+        var guess = pool[index];
+        var r;
+        for (r = 0; r < 81; r++) { counts[r] = 0; }
+        for (i = 0; i < candidates.length; i++) { counts[scoreCode(candidates[i], guess)]++; }
+        var worst = 0, sumSquares = 0, singletons = 0, c;
+        for (r = 0; r < 81; r++) {
+          c = counts[r];
+          if (c > worst) { worst = c; }
+          sumSquares += c * c;
+          if (c === 1) { singletons++; }
+        }
+        var metric = {
+          guess:guess, worst:worst, sumSquares:sumSquares,
+          singletons:singletons, isCandidate:candidateMark[guess] === 1
+        };
+        if (isBetter(metric, best, mode, left)) { best = metric; }
+      }
+
+      byId("calcStatus").textContent = "計算中… " + Math.round(index / pool.length * 100) + "%（" + comma(pool.length) + "入力を評価）";
+      if (index < pool.length) { window.setTimeout(runChunk, 1); return; }
+
+      var avg = best.sumSquares / candidates.length;
+      var type, reason;
+      if (left === 2) {
+        var probability = best.singletons / candidates.length * 100;
+        type = poolInfo.exact ? "最終正解率を厳密最大化" : "最終正解率を近似最大化";
+        reason = "次の判定後に候補を1通りへ確定できるのは" + best.singletons + "/" + candidates.length + "通り（一様仮定で" + probability.toFixed(1) + "%）。最悪時は" + best.worst + "候補残ります。";
+      } else if (mode === "minimax") {
+        type = poolInfo.exact ? "厳密ミニマックス" : "近似ミニマックス";
+        reason = "どの結果でも残る候補を最大" + best.worst + "通りに抑えます。判定後の平均残候補は" + avg.toFixed(2) + "通りです。";
+      } else {
+        type = poolInfo.exact ? "厳密・平均最短" : "近似・平均最短";
+        reason = "判定後の平均残候補を" + avg.toFixed(2) + "通りまで減らす入力です。最悪時は" + best.worst + "候補残ります。";
+      }
+      if (!poolInfo.exact) { reason += " 候補が多いため近似計算を使用しています。"; }
+      applySuggestion({ guess:best.guess, type:type, reason:reason, exact:poolInfo.exact });
+    }
+    window.setTimeout(runChunk, 1);
+  }
+
+  function renderHistory() {
+    var body = byId("historyBody");
+    while (body.firstChild) { body.removeChild(body.firstChild); }
+    if (history.length === 0) {
+      byId("historyEmpty").style.display = "block";
+      byId("historyTable").style.display = "none";
+    } else {
+      byId("historyEmpty").style.display = "none";
+      byId("historyTable").style.display = "table";
+      for (var i = 0; i < history.length; i++) {
+        var tr = document.createElement("tr");
+        var td1 = document.createElement("td");
+        var td2 = document.createElement("td");
+        var td3 = document.createElement("td");
+        var td4 = document.createElement("td");
+        td1.textContent = String(i + 1);
+        td2.textContent = formatNumber(history[i].guess); td2.className = "mono";
+        td3.textContent = codeToSymbols(history[i].feedback); td3.className = "feedback-text";
+        td4.textContent = comma(history[i].remaining);
+        tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4);
+        body.appendChild(tr);
+      }
+    }
+    byId("undo").disabled = history.length === 0 || calculating;
+  }
+
+  function renderCandidates() {
+    byId("candidateSummary").textContent = "候補一覧を開く（" + comma(candidates.length) + "通り）";
+    var shown = [], limit = Math.min(300, candidates.length);
+    for (var i = 0; i < limit; i++) { shown.push(formatNumber(candidates[i])); }
+    byId("candidateList").textContent = shown.join("  ");
+    if (candidates.length > 300) { byId("candidateNote").textContent = "先頭300件のみ表示。残り" + comma(candidates.length - 300) + "件。"; }
+    else { byId("candidateNote").textContent = candidates.length ? "全候補を表示しています。" : "一致する候補がありません。"; }
+  }
+
+  function recalculate() {
+    var token = ++calculationToken;
+    calculating = true;
+    byId("addResult").disabled = true;
+    byId("undo").disabled = true;
+    byId("calcStatus").textContent = "候補を確認しています…";
+    filterCandidates();
+    renderCandidates();
+    renderHistory();
+    byId("candidateCount").textContent = comma(candidates.length);
+    byId("attemptsLeft").textContent = String(attemptsLeft());
+    calculateSuggestion(token);
+  }
+
+  var Solver = {
+    addResult:function (event) {
+      if (event && event.preventDefault) { event.preventDefault(); }
+      if (calculating) { return false; }
+      byId("inputError").textContent = "";
+      var raw = byId("guessInput").value.replace(/[^0-9]/g, "");
+      if (!/^\d{4}$/.test(raw)) {
+        byId("inputError").textContent = "4桁の数字を入力してください。先頭の0も入力できます。";
+        return false;
+      }
+      var item = { guess:parseInt(raw, 10), feedback:statesToCode(getFeedbackStates()), remaining:0 };
+      history.push(item);
+      filterCandidates();
+      item.remaining = candidates.length;
+      byId("guessInput").value = "";
+      resetFeedback();
+      recalculate();
+      return false;
+    },
+    useSuggestion:function (event) {
+      if (event && event.preventDefault) { event.preventDefault(); }
+      byId("guessInput").value = formatNumber(currentSuggestion);
+      byId("guessInput").focus();
+      return false;
+    },
+    undo:function (event) {
+      if (event && event.preventDefault) { event.preventDefault(); }
+      if (history.length && !calculating) { history.pop(); recalculate(); }
+      return false;
+    },
+    reset:function (event) {
+      if (event && event.preventDefault) { event.preventDefault(); }
+      calculationToken++;
+      calculating = false;
+      history = [];
+      byId("guessInput").value = "";
+      byId("inputError").textContent = "";
+      resetFeedback();
+      recalculate();
+      return false;
+    },
+    loadExample:function (event) {
+      if (event && event.preventDefault) { event.preventDefault(); }
+      calculationToken++;
+      calculating = false;
+      history = [
+        { guess:123, feedback:statesToCode([0,1,1,0]), remaining:0 },
+        { guess:4567, feedback:statesToCode([0,0,1,0]), remaining:0 },
+        { guess:1218, feedback:statesToCode([0,2,2,0]), remaining:0 },
+        { guess:2216, feedback:statesToCode([0,2,2,1]), remaining:0 }
+      ];
+      var completed = [];
+      for (var h = 0; h < history.length; h++) {
+        completed.push(history[h]);
+        var count = 0;
+        for (var s = 0; s < 10000; s++) {
+          var ok = true;
+          for (var j = 0; j < completed.length; j++) {
+            if (scoreCode(s, completed[j].guess) !== completed[j].feedback) { ok = false; break; }
+          }
+          if (ok) { count++; }
+        }
+        history[h].remaining = count;
+      }
+      recalculate();
+      return false;
+    }
+  };
+  window.Solver = Solver;
+
+  function bindChange(id) {
+    var el = byId(id);
+    if (el.addEventListener) { el.addEventListener("change", recalculate, false); }
+    else { el.onchange = recalculate; }
+  }
+  var guessInput = byId("guessInput");
+  if (guessInput.addEventListener) {
+    guessInput.addEventListener("input", function () { this.value = this.value.replace(/[^0-9]/g, "").slice(0, 4); }, false);
+  } else {
+    guessInput.onkeyup = function () { this.value = this.value.replace(/[^0-9]/g, "").slice(0, 4); };
+  }
+  bindChange("totalAttempts");
+  bindChange("strategy");
+
+  byId("scriptWarning").style.display = "none";
+  renderCandidates();
+  renderHistory();
+  recalculate();
+
+  window.onerror = function (message, source, line) {
+    var warning = byId("scriptWarning");
+    warning.style.display = "block";
+    warning.textContent = "JavaScriptエラーが発生しました: " + message + "（行 " + line + "）";
+    return false;
+  };
+}());
+</script>
+</body>
+</html>
