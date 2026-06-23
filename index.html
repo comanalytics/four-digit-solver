@@ -112,8 +112,8 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
 </head>
 <body>
 <main>
-  <h1>4桁数字 最短攻略ソルバー</h1>
-  <p class="lead">iPhone対応版。0〜9、重複あり、先頭0あり、一対一消費の○・△・×判定に対応。</p>
+  <h1>4桁数字 最短攻略ソルバー <small style="font-size:.55em;color:var(--muted);">v2.0</small></h1>
+  <p class="lead">iPhone対応版。0〜9、重複あり、先頭0あり。同じ数字が正解内に1個でもあれば、入力側の同じ数字をそれぞれ△と判定します。</p>
 
   <div id="scriptWarning" class="warning">
     JavaScriptが実行されていません。ChatGPT内のファイル表示や「ファイル」アプリのプレビューではなく、JavaScriptを実行できるブラウザ環境で開いてください。
@@ -148,6 +148,7 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
       </div>
     </div>
     <p class="note">残り2回では、次の結果で正解を一意にできる確率を最大化します。</p>
+    <p class="note"><strong>判定方式：</strong>非消費型の存在判定 （例：正解8364／入力3839 → △△△×）</p>
   </section>
 
   <form id="resultForm" class="card" onsubmit="return Solver.addResult(event);">
@@ -210,7 +211,7 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
       <tbody id="historyBody"></tbody>
     </table>
     <div class="actions">
-      <button class="secondary" type="button" onclick="return Solver.loadExample(event);">今回の正解例を読み込む</button>
+      <button class="secondary" type="button" onclick="return Solver.loadExample(event);">8364の検証例を読み込む</button>
     </div>
   </section>
 
@@ -228,9 +229,9 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
     <div class="rules">
       <div><span class="pill">○</span>数字と位置が一致</div>
       <div><span class="pill">△</span>数字は存在するが位置が異なる</div>
-      <div><span class="pill">×</span>その位置に割り当てられる同じ数字がない</div>
+      <div><span class="pill">×</span>その数字が正解内のどこにも存在しない</div>
     </div>
-    <p class="note">例：正解1135、入力1111なら○○××です。</p>
+    <p class="note">例：正解1135、入力1111なら○○△△です。正解内に1が存在するため、3桁目・4桁目の1も△になります。</p>
   </section>
 </main>
 
@@ -270,38 +271,30 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
     var go = guess * 4;
     var s0 = DIGITS[so], s1 = DIGITS[so + 1], s2 = DIGITS[so + 2], s3 = DIGITS[so + 3];
     var g0 = DIGITS[go], g1 = DIGITS[go + 1], g2 = DIGITS[go + 2], g3 = DIGITS[go + 3];
-    var e0 = s0 === g0, e1 = s1 === g1, e2 = s2 === g2, e3 = s3 === g3;
-    var packed = 0;
-    var code = 0, c, shift;
+    var code = 0;
 
-    if (!e0) { packed += 1 << (s0 * 3); }
-    if (!e1) { packed += 1 << (s1 * 3); }
-    if (!e2) { packed += 1 << (s2 * 3); }
-    if (!e3) { packed += 1 << (s3 * 3); }
+    /*
+      非消費型の存在判定:
+      ・同じ位置なら○
+      ・同じ位置でなくても、正解4桁のどこかに存在すれば△
+      ・存在しなければ×
+      入力側に同じ数字が複数あっても、正解内に1個以上あれば各位置を△にする。
+    */
+    if (g0 === s0) { code = 2; }
+    else if (g0 === s1 || g0 === s2 || g0 === s3) { code = 1; }
 
-    if (e0) { code = 2; }
-    else {
-      shift = g0 * 3; c = (packed >>> shift) & 7;
-      if (c > 0) { code = 1; packed -= 1 << shift; }
-    }
     code *= 3;
-    if (e1) { code += 2; }
-    else {
-      shift = g1 * 3; c = (packed >>> shift) & 7;
-      if (c > 0) { code += 1; packed -= 1 << shift; }
-    }
+    if (g1 === s1) { code += 2; }
+    else if (g1 === s0 || g1 === s2 || g1 === s3) { code += 1; }
+
     code *= 3;
-    if (e2) { code += 2; }
-    else {
-      shift = g2 * 3; c = (packed >>> shift) & 7;
-      if (c > 0) { code += 1; packed -= 1 << shift; }
-    }
+    if (g2 === s2) { code += 2; }
+    else if (g2 === s0 || g2 === s1 || g2 === s3) { code += 1; }
+
     code *= 3;
-    if (e3) { code += 2; }
-    else {
-      shift = g3 * 3; c = (packed >>> shift) & 7;
-      if (c > 0) { code += 1; }
-    }
+    if (g3 === s3) { code += 2; }
+    else if (g3 === s0 || g3 === s1 || g3 === s2) { code += 1; }
+
     return code;
   }
 
@@ -574,10 +567,10 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
       calculationToken++;
       calculating = false;
       history = [
-        { guess:123, feedback:statesToCode([0,1,1,0]), remaining:0 },
-        { guess:4567, feedback:statesToCode([0,0,1,0]), remaining:0 },
-        { guess:1218, feedback:statesToCode([0,2,2,0]), remaining:0 },
-        { guess:2216, feedback:statesToCode([0,2,2,1]), remaining:0 }
+        { guess:123, feedback:statesToCode([0,0,0,1]), remaining:0 },
+        { guess:4567, feedback:statesToCode([1,0,2,0]), remaining:0 },
+        { guess:3839, feedback:statesToCode([1,1,1,0]), remaining:0 },
+        { guess:8364, feedback:statesToCode([2,2,2,2]), remaining:0 }
       ];
       var completed = [];
       for (var h = 0; h < history.length; h++) {
