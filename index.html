@@ -112,8 +112,8 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
 </head>
 <body>
 <main>
-  <h1>4桁数字 最短攻略ソルバー <small style="font-size:.55em;color:var(--muted);">v2.0</small></h1>
-  <p class="lead">iPhone対応版。0〜9、重複あり、先頭0あり。同じ数字が正解内に1個でもあれば、入力側の同じ数字をそれぞれ△と判定します。</p>
+  <h1>4桁数字 最短攻略ソルバー <small style="font-size:.55em;color:var(--muted);">v3.0</small></h1>
+  <p class="lead">iPhone対応版。0〜9、重複あり、先頭0あり。最初に○を確定してその位置を除外し、残った正解数字に同じ数字が1個でもあれば、入力側の複数位置をそれぞれ△と判定します。</p>
 
   <div id="scriptWarning" class="warning">
     JavaScriptが実行されていません。ChatGPT内のファイル表示や「ファイル」アプリのプレビューではなく、JavaScriptを実行できるブラウザ環境で開いてください。
@@ -148,7 +148,7 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
       </div>
     </div>
     <p class="note">残り2回では、次の結果で正解を一意にできる確率を最大化します。</p>
-    <p class="note"><strong>判定方式：</strong>非消費型の存在判定 （例：正解8364／入力3839 → △△△×）</p>
+    <p class="note"><strong>判定方式：</strong>○を先に除外し、残りの正解数字に対して△を非消費で判定します。（正解8218／入力2218 → ×○○○、正解8364／入力3839 → △△△×）</p>
   </section>
 
   <form id="resultForm" class="card" onsubmit="return Solver.addResult(event);">
@@ -211,7 +211,8 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
       <tbody id="historyBody"></tbody>
     </table>
     <div class="actions">
-      <button class="secondary" type="button" onclick="return Solver.loadExample(event);">8364の検証例を読み込む</button>
+      <button class="secondary" type="button" onclick="return Solver.loadExample8218(event);">8218の検証例を読み込む</button>
+      <button class="secondary" type="button" onclick="return Solver.loadExample8364(event);">8364の検証例を読み込む</button>
     </div>
   </section>
 
@@ -227,11 +228,13 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
   <section class="card">
     <h2>判定ルール</h2>
     <div class="rules">
-      <div><span class="pill">○</span>数字と位置が一致</div>
-      <div><span class="pill">△</span>数字は存在するが位置が異なる</div>
-      <div><span class="pill">×</span>その数字が正解内のどこにも存在しない</div>
+      <div><span class="pill">○</span>数字と位置が一致。最初に確定し、その正解位置を△判定の対象から除外</div>
+      <div><span class="pill">△</span>○ではなく、○を除外した残りの正解数字に同じ数字が存在</div>
+      <div><span class="pill">×</span>○を除外した残りの正解数字に、その数字が存在しない</div>
     </div>
-    <p class="note">例：正解1135、入力1111なら○○△△です。正解内に1が存在するため、3桁目・4桁目の1も△になります。</p>
+    <p class="note">△同士では数字を消費しません。残りの正解数字に1個でも存在すれば、入力側の同じ数字を複数回△にできます。</p>
+    <p class="note">例1：正解8218／入力2218 → ×○○○。2桁目の2が○として除外されるため、1桁目の2は×です。</p>
+    <p class="note">例2：正解8364／入力3839 → △△△×。○がなく、残りに3があるため2個の3がどちらも△です。</p>
   </section>
 </main>
 
@@ -271,29 +274,30 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
     var go = guess * 4;
     var s0 = DIGITS[so], s1 = DIGITS[so + 1], s2 = DIGITS[so + 2], s3 = DIGITS[so + 3];
     var g0 = DIGITS[go], g1 = DIGITS[go + 1], g2 = DIGITS[go + 2], g3 = DIGITS[go + 3];
-    var code = 0;
+
+    var e0 = (g0 === s0);
+    var e1 = (g1 === s1);
+    var e2 = (g2 === s2);
+    var e3 = (g3 === s3);
 
     /*
-      非消費型の存在判定:
-      ・同じ位置なら○
-      ・同じ位置でなくても、正解4桁のどこかに存在すれば△
-      ・存在しなければ×
-      入力側に同じ数字が複数あっても、正解内に1個以上あれば各位置を△にする。
+      混合型判定:
+      1. ○を先に確定する。
+      2. ○になった正解位置を△判定の対象から除外する。
+      3. 残った正解数字の存在集合を作る。
+      4. 非○の各入力位置を独立に照合する。
+         △同士では数字を消費しないため、1個の残存数字を複数の△が共有できる。
     */
-    if (g0 === s0) { code = 2; }
-    else if (g0 === s1 || g0 === s2 || g0 === s3) { code = 1; }
+    var remainingMask = 0;
+    if (!e0) { remainingMask |= (1 << s0); }
+    if (!e1) { remainingMask |= (1 << s1); }
+    if (!e2) { remainingMask |= (1 << s2); }
+    if (!e3) { remainingMask |= (1 << s3); }
 
-    code *= 3;
-    if (g1 === s1) { code += 2; }
-    else if (g1 === s0 || g1 === s2 || g1 === s3) { code += 1; }
-
-    code *= 3;
-    if (g2 === s2) { code += 2; }
-    else if (g2 === s0 || g2 === s1 || g2 === s3) { code += 1; }
-
-    code *= 3;
-    if (g3 === s3) { code += 2; }
-    else if (g3 === s0 || g3 === s1 || g3 === s2) { code += 1; }
+    var code = e0 ? 2 : ((remainingMask & (1 << g0)) ? 1 : 0);
+    code = code * 3 + (e1 ? 2 : ((remainingMask & (1 << g1)) ? 1 : 0));
+    code = code * 3 + (e2 ? 2 : ((remainingMask & (1 << g2)) ? 1 : 0));
+    code = code * 3 + (e3 ? 2 : ((remainingMask & (1 << g3)) ? 1 : 0));
 
     return code;
   }
@@ -562,16 +566,11 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
       recalculate();
       return false;
     },
-    loadExample:function (event) {
+    loadHistory:function (event, newHistory) {
       if (event && event.preventDefault) { event.preventDefault(); }
       calculationToken++;
       calculating = false;
-      history = [
-        { guess:123, feedback:statesToCode([0,0,0,1]), remaining:0 },
-        { guess:4567, feedback:statesToCode([1,0,2,0]), remaining:0 },
-        { guess:3839, feedback:statesToCode([1,1,1,0]), remaining:0 },
-        { guess:8364, feedback:statesToCode([2,2,2,2]), remaining:0 }
-      ];
+      history = newHistory;
       var completed = [];
       for (var h = 0; h < history.length; h++) {
         completed.push(history[h]);
@@ -587,6 +586,22 @@ summary { color:var(--accent); font-weight:700; cursor:pointer; }
       }
       recalculate();
       return false;
+    },
+    loadExample8218:function (event) {
+      return this.loadHistory(event, [
+        { guess:123, feedback:statesToCode([0,1,1,0]), remaining:0 },
+        { guess:4567, feedback:statesToCode([0,0,0,0]), remaining:0 },
+        { guess:1892, feedback:statesToCode([1,1,0,1]), remaining:0 },
+        { guess:2218, feedback:statesToCode([0,2,2,2]), remaining:0 }
+      ]);
+    },
+    loadExample8364:function (event) {
+      return this.loadHistory(event, [
+        { guess:123, feedback:statesToCode([0,0,0,1]), remaining:0 },
+        { guess:4567, feedback:statesToCode([1,0,2,0]), remaining:0 },
+        { guess:3839, feedback:statesToCode([1,1,1,0]), remaining:0 },
+        { guess:8364, feedback:statesToCode([2,2,2,2]), remaining:0 }
+      ]);
     }
   };
   window.Solver = Solver;
